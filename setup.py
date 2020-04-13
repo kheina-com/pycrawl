@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
 	name='pycrawl',
@@ -6,7 +6,7 @@ setup(
 	description='A fast and simple crawling framework.',
 	author='kheina',
 	url='https://github.com/kheina/pycrawl',
-	packages=['pycrawl'],
+	packages=find_packages(),
 	install_requires=[
 		'flask',
 		'lxml',
