@@ -32,7 +32,7 @@ def isint(s) :
 
 class BaseCrawlingException(Exception) :
 	def __init__(self, message, logdata={}) :
-		super().__init__(message)
+		Exception.__init__(self, message)
 		self.logdata = logdata
 
 
@@ -105,7 +105,6 @@ class Crawler :
 		else :
 			self.done = is_set
 
-		logging.basicConfig(level=logging.INFO)
 		self.logger = logging.getLogger(self.name)
 		self.consecutiveNoSubmissions = 0
 		self.sleepfor = None
@@ -407,3 +406,7 @@ class Crawler :
 		self._mq_connection = pika.BlockingConnection(pika.ConnectionParameters(**self._mq_connection_info))
 		self._mq_channel = self._mq_connection.channel()
 		self._mq_channel.queue_declare(queue=self._mq_publish_info['routing_key'])
+
+
+	def createDefaultLogger(self) :
+		logging.basicConfig(level=logging.INFO)
