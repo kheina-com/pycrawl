@@ -1,4 +1,4 @@
-from crawler import Crawler, first
+from pycrawl.crawler import Crawler, first
 
 class SimpleCrawler(Crawler) :
 
@@ -26,7 +26,7 @@ class SimpleCrawler(Crawler) :
 """
 # to run:
 
-from examples.crawlers import SimpleCrawler
-a = SimpleCrawler(startingid=0, direction=0)
+from pycrawl.examples.crawlers import SimpleCrawler
+a = SimpleCrawler(startingid=0, direction=0, simplelogging=True)
 a.run(['https://www.google.com/'])
 """

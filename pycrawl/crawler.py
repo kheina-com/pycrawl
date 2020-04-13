@@ -66,6 +66,7 @@ class Crawler :
 		calm: force the crawler to act more calmly to reduce strain on the website
 		endingid: specify an ending id to stop crawling on
 		urls: only crawl these specific urls
+		simplelogging: enables terminal based logging (createDefaultLogger)
 		"""
 
 		# apply defaults here
@@ -99,6 +100,8 @@ class Crawler :
 		else :
 			self.done = is_set
 
+		if kwargs.get('simplelogging') :
+			self.createDefaultLogger()
 		self.logger = logging.getLogger(self.name)
 		self.consecutiveNoSubmissions = 0
 		self.sleepfor = None
