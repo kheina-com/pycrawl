@@ -1,10 +1,9 @@
-from common.HTTPError import HTTPError, ResponseNotOk, BadOrMalformedResponse
-from common import GetFullyQualifiedClassName
+from pycrawl.common.HTTPError import HTTPError, ResponseNotOk, BadOrMalformedResponse
+from pycrawl.common import GetFullyQualifiedClassName, isint
 from collections import defaultdict
 from lxml.html import fromstring
 from traceback import format_tb
-try : import ujson as json
-except : import json
+import ujson as json
 import requests
 import logging
 import time
@@ -23,11 +22,6 @@ class First :
 			return None
 
 first = First()
-
-
-def isint(s) :
-	try : return int(s)
-	except : return None
 
 
 class BaseCrawlingException(Exception) :

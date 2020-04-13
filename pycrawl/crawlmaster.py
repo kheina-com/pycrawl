@@ -1,9 +1,8 @@
 from multiprocessing import Process, Event
 from importlib import import_module
 from flask import Flask, request
-from parsesource import isint
-try : import ujson as json
-except : import json
+from common import isint
+import ujson as json
 import subprocess
 import databaser
 import logger

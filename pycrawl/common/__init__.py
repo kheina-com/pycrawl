@@ -15,3 +15,8 @@ def setupLogging() :
 		client.setup_logging()
 	except :
 		pass
+
+
+def isint(s) :
+	try : return int(s)
+	except : return None
