@@ -121,9 +121,9 @@ class Crawler :
 
 		self.responseNotOkHandlers = {
 			# check the status code to see if we really need to pause crawling
-			000: lambda e : self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.'), # custom handler for custom errors, when status isn't available
-			400: lambda e : self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.'),
-			500: lambda e : time.sleep(60 * 60), # sleep for an hour
+			000: lambda e : self.skipUrl(lambda : self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')), # custom handler for custom errors, when status isn't available
+			400: lambda e : self.skipUrl(lambda : self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')),
+			500: lambda e : self.skipUrl(lambda : time.sleep(60 * 60)), # sleep for an hour
 		}
 
 		self.errorHandlers = defaultdict(lambda : self.shutdown, { # default, shut down
@@ -131,7 +131,7 @@ class Crawler :
 			# handlers that return True reset skips to 0, if the url needs to be skipped, run self.skipUrl
 			BadOrMalformedResponse: self.shutdown, # FULL SHUTDOWN, KILL PROCESS AND LOG ERROR
 			WebsiteOffline: lambda e : self.skipUrl(lambda : time.sleep(60 * 60)), # temporary (60 minute) shutdown
-			ResponseNotOk: lambda e : self.skipUrl(lambda : self.responseNotOkHandlers[int(e.status / 100) * 100](e)), # skip, then let unique handler deal with it
+			ResponseNotOk: lambda e : self.responseNotOkHandlers[int(e.status / 100) * 100](e), # let unique handler deal with it
 			InvalidResponseType: lambda e : self.skipUrl(), # skip, check again later
 			requests.exceptions.ConnectionError: lambda e : self.skipUrl(lambda : time.sleep(5 * 60)), # temporary (5 minute) shutdown
 			NoSubmission: self.noSubmissionHandler, # custom handler
@@ -275,10 +275,10 @@ class Crawler :
 	def crawl(self, url) :
 		# returns True if the crawl was successful or otherwise shouldn't be run again
 		self.url = url
-		formattedurl = self.formatUrl(url)
+		self.formattedurl = self.formatUrl(url)
 		self.sleepfor = 0
 		try :
-			result = self.parse(self.downloadHtml(formattedurl))
+			result = self.parse(self.downloadHtml(self.formattedurl))
 			result.update(self.postProcess(result))
 
 			self.send(result)
@@ -296,6 +296,10 @@ class Crawler :
 				self.urls.append(url)
 				time.sleep(5 * 60) # five minutes
 
+			elif e.status == -1 :
+				# add this url to self.urls to get re-crawled as a response wasn't received, it may be a crawler issue
+				self.urls.append(url)
+
 			elif hundredcode in self.responseNotOkHandlers :
 				self.responseNotOkHandlers[hundredcode](e)
 
@@ -307,7 +311,7 @@ class Crawler :
 					'name': self.name,
 					'error': f'{GetFullyQualifiedClassName(e)}: {e}',
 					'stacktrace': format_tb(exc_tb),
-					'formattedurl': formattedurl,
+					'formattedurl': self.formattedurl,
 					'url': url,
 					**getattr(e, 'logdata', {}),
 				}
