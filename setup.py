@@ -7,4 +7,11 @@ setup(
 	author='kheina',
 	url='https://github.com/kheina/pycrawl',
 	packages=['pycrawl'],
+	install_requires=[
+		'flask',
+		'lxml',
+		'requests',
+		'pika',
+		'ujson',
+	],
 )
