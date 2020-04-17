@@ -25,7 +25,7 @@ first = First()
 
 
 class BaseCrawlingException(Exception) :
-	def __init__(self, message, logdata={}) :
+	def __init__(self, message, logdata={ }) :
 		Exception.__init__(self, message)
 		self.logdata = logdata
 
@@ -106,7 +106,6 @@ class Crawler :
 		self.consecutiveNoSubmissions = 0
 		self.sleepfor = None
 
-		self.send = lambda x : self.logger.info(f'[{time.asctime(time.localtime(time.time()))}] crawled > {x}')
 		self._mq_connection_info = None
 		self._mq_publish_info = None
 		self._mq_connection = None
@@ -115,30 +114,22 @@ class Crawler :
 		# initialize the session
 		self._session = requests.Session()
 
-		self.responseNotOkHandlers = {
-			# check the status code to see if we really need to pause crawling
-			000: lambda e : self.skipUrl(lambda : self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')), # custom handler for custom errors, when status isn't available
-			400: lambda e : self.skipUrl(lambda : self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')),
-			500: lambda e : self.skipUrl(lambda : time.sleep(60 * 60)), # sleep for an hour
-		}
-
-		self.errorHandlers = defaultdict(lambda : self.shutdown, { # default, shut down
-			# all handlers must accept the error as an arg
+		self.errorHandlers = defaultdict(lambda : self.shutdown, {  # default, shut down
+			# all handlers are called WITHOUT args
 			# handlers that return True reset skips to 0, if the url needs to be skipped, run self.skipUrl
-			BadOrMalformedResponse: self.shutdown, # FULL SHUTDOWN, KILL PROCESS AND LOG ERROR
-			WebsiteOffline: lambda e : self.skipUrl(lambda : time.sleep(60 * 60)), # temporary (60 minute) shutdown
-			ResponseNotOk: lambda e : self.responseNotOkHandlers[int(e.status / 100) * 100](e), # let unique handler deal with it
-			InvalidResponseType: lambda e : self.skipUrl(), # skip, check again later
-			requests.exceptions.ConnectionError: lambda e : self.skipUrl(lambda : time.sleep(5 * 60)), # temporary (5 minute) shutdown
-			NoSubmission: self.noSubmissionHandler, # custom handler
-			InvalidSubmission: lambda e : True, # a submission was found, but the type isn't able to be indexed
-			requests.exceptions.SSLError: lambda e : self.skipUrl(), # sometimes this fails. for now, just add to skips. find root cause later
-			requests.exceptions.ReadTimeout: lambda e : self.skipUrl(lambda : time.sleep(1 * 60)), # temporary (1 minute) shutdown
+			BadOrMalformedResponse: self.shutdown,  # FULL SHUTDOWN, KILL PROCESS AND LOG ERROR
+			WebsiteOffline: lambda : self.skipUrl(lambda : time.sleep(60 * 60)),  # temporary (60 minute) shutdown
+			ResponseNotOk: self.responseNotOkHandler,  # let unique handler deal with it
+			InvalidResponseType: self.skipUrl,  # skip, check again later
+			requests.exceptions.ConnectionError: lambda : self.skipUrl(lambda : time.sleep(5 * 60)),  # temporary (5 minute) shutdown
+			NoSubmission: self.noSubmissionHandler,  # custom handler
+			InvalidSubmission: lambda : True,  # a submission was found, but the type isn't able to be indexed
+			ValueError: self.valueErrorHandler,  # custom error handler, make sure it's what we expected
 		})
 
-		self.doNotLog = { NoSubmission, ResponseNotOk } # don't log these errors
+		self.doNotLog = { NoSubmission, ResponseNotOk }  # don't log these errors
 
-		self.unblocking = {} # empty by default, but is checked based on response code
+		self.unblocking = { }  # empty by default, but is checked based on response code
 
 
 	def run(self, urls=None) :
@@ -161,17 +152,10 @@ class Crawler :
 					nextcheck = time.time() + self.checkEvery
 					self.logger.info(f'{self.name} checked skips. current id: {self.id} ({self.skips()}/{startingSkips})')
 
-		except Exception as e :
-			exc_type, exc_obj, exc_tb = sys.exc_info()
+		except :
 			self.logger.error({
-				'error': f'{GetFullyQualifiedClassName(e)}: {e}',
 				'info': f'{self.name} gracefully shutting down.',
-				'stacktrace': format_tb(exc_tb),
-				'id': self.id,
-				'name': self.name,
-				'skips': self.skipped,
 				**self.crashInfo(),
-				**getattr(e, 'logdata', {}),
 			})
 
 		else :
@@ -185,17 +169,12 @@ class Crawler :
 				self.checkSkips()
 				maxChecks -= 1
 
-		except Exception as e :
+		except :
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			logdata = {
-				'error': f'{GetFullyQualifiedClassName(e)}: {e}',
 				'info': f'{self.name} has shut down.',
-				'stacktrace': format_tb(exc_tb),
-				'id': self.id,
-				'name': self.name,
-				'skips': self.skipped,
+				'skipped': self.skipped,
 				**self.crashInfo(),
-				**getattr(e, 'logdata', {}),
 			}
 			if self.skips() :
 				self.logger.error(logdata)
@@ -211,7 +190,17 @@ class Crawler :
 
 
 	def crashInfo(self) :
-		return {}
+		exc_type, exc_obj, exc_tb = sys.exc_info()
+		return {
+			'error': f'{GetFullyQualifiedClassName(exc_obj)}: {exc_obj}',
+			'stacktrace': format_tb(exc_tb),
+			'id': self.id,
+			'url': self.url,
+			'formattedurl': self.formattedurl,
+			'name': self.name,
+			'skips': self.skipped,
+			**getattr(exc_obj, 'logdata', { }),
+		}
 
 
 	def checkSkips(self) :
@@ -222,7 +211,7 @@ class Crawler :
 			while self.skipped[i] :
 				url = self.skipped[i].pop()
 				if self.crawl(url) :
-					pass # use pass rather than not because it's easier to read
+					pass  # use pass rather than not because it's easier to read
 				elif i < maxlen :
 					self.skipped[i+1].append(url)
 
@@ -235,6 +224,11 @@ class Crawler :
 			self.skipped[0].append(self.url)
 		if func :
 			return func()
+
+
+	def queueUrl(self, url=None) :
+		# different from skip, this function has no limit to number of tries the url can be re-crawled
+		self.urls.append(url or self.url)
 
 
 	def skips(self) :
@@ -284,59 +278,56 @@ class Crawler :
 
 			return True
 
-		except ResponseNotOk as e :
-			# there's so much this error can contain that we need to handle it with full function context
-			hundredcode = int(e.status / 100) * 100
-			if e.status == 503 :
-				# add this url to self.urls to get re-crawled but sleep for a while as the site might be down for some time
-				self.urls.append(url)
-				time.sleep(5 * 60) # five minutes
-
-			elif e.status == -1 :
-				# add this url to self.urls to get re-crawled as a response wasn't received, it may be a crawler issue
-				self.urls.append(url)
-
-			elif hundredcode in self.responseNotOkHandlers :
-				self.responseNotOkHandlers[hundredcode](e)
-
-		except Exception as e :
-			typeE = type(e)
+		except :
+			typeE = sys.exc_info()[0]
 			if typeE not in self.doNotLog :
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				logdata = {
-					'name': self.name,
-					'error': f'{GetFullyQualifiedClassName(e)}: {e}',
-					'stacktrace': format_tb(exc_tb),
-					'formattedurl': self.formattedurl,
-					'url': url,
-					**getattr(e, 'logdata', {}),
-				}
 				if typeE not in self.errorHandlers :
-					self.logger.error(logdata)
+					self.logger.error(self.crashInfo())
 				else :
-					self.logger.info(logdata)
-			return self.errorHandlers[typeE](e)
+					self.logger.info(self.crashInfo())
+			return self.errorHandlers[typeE]()
 
 
 	def postProcess(self, result) :
-		return {}
+		return { }
 
 
-	def shutdown(self, e) :
-		raise ShutdownCrawler(e)
+	def shutdown(self) :
+		raise ShutdownCrawler()
 
 
-	def noSubmissionHandler(self, e) :
+	def responseNotOkHandler(self) :
+		e = sys.exc_info()[1]
+		hundredCode = int(e.status / 100)
+		if hundredCode == 0 :  # custom error, no response received
+			self.queueUrl()
+			self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
+		elif hundredCode == 4 :  # 400 error
+			self.queueUrl()
+			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
+		elif hundredCode == 5 :  # 500 error
+			self.skipUrl()
+			time.sleep(5 * 60)  # sleep for a while
+		else :
+			self.queueUrl()
+			self.logger.error({
+				**self.crashInfo(),
+				'info': f'{self.name} caught unexpected error.',
+				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}'
+			})
+
+
+	def noSubmissionHandler(self) :
 		if self.direction > 0 and not self.checkingSkips :
 			self.skipUrl()
 			self.consecutiveNoSubmissions += 1
 			if self.consecutiveNoSubmissions >= self.skipMax :
 				startingSkips = self.totalSkipped()
-				del self.skipped[0][-self.consecutiveNoSubmissions:] # remove skips
+				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
 				self.logger.info(f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s. current id: {self.id} ({self.totalSkipped()}/{startingSkips})')
-				self.consecutiveNoSubmissions = 0 # and reset to zero
-				self.idle() # chill to let more stuff be uploaded
+				self.consecutiveNoSubmissions = 0  # and reset to zero
+				self.idle()  # chill to let more stuff be uploaded
 
 			# don't reset skips, this function handles that
 			return False
@@ -346,9 +337,17 @@ class Crawler :
 			return True
 
 
+	def valueErrorHandler(self) :
+		e = sys.exc_info()[1]
+		if str(e).startswith('Unicode strings with encoding declaration are not supported.') :
+			self.queueUrl()
+		else :
+			# reraise the error since it wasn't what we were expecting
+			raise e
+
 	def urlGenerator(self) :
 		if self.urls :
-			# return a generator rather than yielding
+			# only run on the urls provided
 			while self.urls :
 				yield self.urls.pop(0)
 			return
@@ -373,6 +372,10 @@ class Crawler :
 				self.unblocking[response.status_code](response)
 			raise ResponseNotOk(f'reason: {response.reason}, url: {url}', status=response.status_code)
 		raise InvalidResponseType(f'request failed for an unknown reason.')
+
+
+	def send(self, item) :
+		self.logger.info(f'[{time.asctime(time.localtime(time.time()))}] crawled > {json.dumps(item, indent=4)}')
 
 
 	def _send(self, message) :

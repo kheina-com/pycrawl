@@ -1,5 +1,5 @@
 class HTTPError(Exception) :
-	def __init__(self, message, status=500, logdata={}) :
+	def __init__(self, message, status=500, logdata={ }) :
 		super().__init__(message)
 		self.status = status
 		self.logdata = logdata
