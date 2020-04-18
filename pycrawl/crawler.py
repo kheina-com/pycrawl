@@ -200,7 +200,7 @@ class Crawler :
 			'url': self.url,
 			'formattedurl': self.formattedurl,
 			'name': self.name,
-			'skips': self.skipped,
+			'skips': self.totalSkipped(),
 			**getattr(exc_obj, 'logdata', { }),
 		}
 
@@ -238,11 +238,11 @@ class Crawler :
 
 
 	def totalSkipped(self) :
-		return sum(len(i) for i in self.skipped)
+		return sum(map(len, self.skipped))
 
 
 	def prettySkipped(self) :
-		return tuple(len(i) for i in self.skipped)
+		return tuple(map(len, self.skipped))
 
 
 	def verboseSkipped(self) :
@@ -271,7 +271,7 @@ class Crawler :
 		self.sleepfor = 0
 		try :
 			result = self.parse(self.downloadHtml(self.formattedurl))
-			self.postProcess(result)
+			self.postProcessing(result)
 
 			self.send(result)
 
@@ -287,8 +287,8 @@ class Crawler :
 			return self.errorHandlers[typeE]()
 
 
-	def postProcess(self, result) :
-		return { }
+	def postProcessing(self, result) :
+		pass
 
 
 	def shutdown(self) :
