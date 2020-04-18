@@ -73,7 +73,7 @@ class Crawler :
 		self.id = int(kwargs['startingid'])
 		self.direction = int(kwargs['direction'])
 		self.skipMax = int(kwargs.get('skipmax', 15))
-		self.skipped = tuple([] for i in range(kwargs.get('skipmaxretries', 3)))
+		self.skipped = tuple([] for _ in range(kwargs.get('skipmaxretries', 3)))
 		self.idleTime = float(kwargs.get('idletime', 30))
 		self.timeout = float(kwargs.get('timeout', 30))
 		self.checkEvery = float(kwargs.get('checkevery', 180))
@@ -269,7 +269,7 @@ class Crawler :
 		self.sleepfor = 0
 		try :
 			result = self.parse(self.downloadHtml(self.formattedurl))
-			result.update(self.postProcess(result))
+			self.postProcess(result)
 
 			self.send(result)
 
@@ -280,11 +280,8 @@ class Crawler :
 
 		except :
 			typeE = sys.exc_info()[0]
-			if typeE not in self.doNotLog :
-				if typeE not in self.errorHandlers :
-					self.logger.error(self.crashInfo())
-				else :
-					self.logger.info(self.crashInfo())
+			if typeE not in self.doNotLog and typeE in self.errorHandlers :
+				self.logger.info(self.crashInfo())
 			return self.errorHandlers[typeE]()
 
 
@@ -293,7 +290,9 @@ class Crawler :
 
 
 	def shutdown(self) :
-		raise ShutdownCrawler()
+		self.logger.error(self.crashInfo())
+		e, exc_tb = sys.exc_info()[1:]
+		raise ShutdownCrawler(e).with_traceback(exc_tb)
 
 
 	def responseNotOkHandler(self) :
@@ -303,10 +302,10 @@ class Crawler :
 			self.queueUrl()
 			self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
 		elif hundredCode == 4 :  # 400 error
-			self.queueUrl()
+			self.skipUrl()
 			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
 		elif hundredCode == 5 :  # 500 error
-			self.skipUrl()
+			self.queueUrl()
 			time.sleep(5 * 60)  # sleep for a while
 		else :
 			self.queueUrl()
@@ -344,6 +343,7 @@ class Crawler :
 		else :
 			# reraise the error since it wasn't what we were expecting
 			raise e
+
 
 	def urlGenerator(self) :
 		if self.urls :
