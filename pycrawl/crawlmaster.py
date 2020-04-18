@@ -31,11 +31,12 @@ def startNewCrawl(modulePath, *args, **kwargs) :
 	crawler.run()
 
 def updateCrawlersInfo() :
-	for key in crawlers.keys() :
-		if crawlers[key].is_alive() :
-			crawlersinfo[key]['uptime'] = time.time() - crawlersinfo[key]['starttime']
+	for key, crawler in crawlers.items() :
+		if crawler.is_alive() :
+			crawler['uptime'] = time.time() - crawler['starttime']
+			crawler['status'] = 'gracefully shutting down' if shutdowns[key].is_set() else 'alive'
 		else :
-			crawlersinfo[key]['status'] = 'dead'
+			crawler['status'] = 'dead'
 
 @app.route('/start', methods=['POST'])
 def start() :

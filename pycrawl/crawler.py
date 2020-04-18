@@ -85,9 +85,9 @@ class Crawler :
 		self.url = None
 		self.checkingSkips = None
 
-		event = kwargs.get('event')
-		if event :
-			is_set = event.is_set
+		self.event = kwargs.get('event')
+		if self.event :
+			is_set = self.event.is_set
 		else :
 			is_set = lambda : False
 
@@ -161,6 +161,9 @@ class Crawler :
 		else :
 			self.logger.info(f'{self.name} gracefully shutting down. current id: {self.id}, skips: {self.prettySkipped()} ({self.skips()})')
 
+		if self.event :
+			self.event.set()
+
 		# try to gracefully shut down...
 		try :
 			maxChecks = len(self.skipped)
@@ -170,7 +173,6 @@ class Crawler :
 				maxChecks -= 1
 
 		except :
-			exc_type, exc_obj, exc_tb = sys.exc_info()
 			logdata = {
 				'info': f'{self.name} has shut down.',
 				'skipped': self.skipped,
@@ -393,13 +395,18 @@ class Crawler :
 		return False
 
 
-	def mqConnect(self, connection_info=None, publish_info=None) :
+	def mqConnect(self, connection_info=None, exchange_info=None, publish_info=None) :
 		self._mq_connection_info = connection_info
+		self._mq_exchange_info = exchange_info
 		self._mq_publish_info = publish_info
 		try :
 			self._mq_connect()
 		except Exception as e :
-			self.logger.warning(f'{self.name} encountered {GetFullyQualifiedClassName(e)}: {e} and cannot write to message queue. Messages will write to terminal.')
+			self.logger.warning(
+				f'{self.name} encountered '
+				f'{GetFullyQualifiedClassName(e)}' if str(e) else f'{GetFullyQualifiedClassName(e)}: {e}'
+				' and cannot write to message queue. Messages will write to terminal.'
+			)
 		else :
 			self.send = lambda x : self._send(json.dumps(x).encode())
 
@@ -407,7 +414,10 @@ class Crawler :
 	def _mq_connect(self) :
 		self._mq_connection = pika.BlockingConnection(pika.ConnectionParameters(**self._mq_connection_info))
 		self._mq_channel = self._mq_connection.channel()
-		self._mq_channel.queue_declare(queue=self._mq_publish_info['routing_key'])
+		if self._mq_exchange_info :
+			self._mq_channel.exchange_declare(**self._mq_exchange_info)
+		else :
+			self._mq_channel.queue_declare(queue=self._mq_publish_info['routing_key'])
 
 
 	def createDefaultLogger(self) :
