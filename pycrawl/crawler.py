@@ -58,7 +58,8 @@ class Crawler :
 		startingid: required - first id to crawl
 		direction: required - which direction and how much to increment id
 		event: python multiprocessing.Event to shutdown crawler gracefully from another process
-		skipmax: total number of urls to skip before sleeping - positive direction only
+		backoff: total number of urls to skip before sleeping - positive direction only
+		backoffstep: amount to increase backoff by per failure
 		skipmaxretries: number of times to retry a url before giving up
 		checkevery: interval to check skipped urls in seconds
 		timeout: how long to wait when downloading an html document
@@ -72,9 +73,10 @@ class Crawler :
 		# apply defaults here
 		self.id = int(kwargs['startingid'])
 		self.direction = int(kwargs['direction'])
-		self.skipMax = int(kwargs.get('skipmax', 15))
+		self.backoff = int(kwargs.get('backoff', 5))
+		self.backoffstep = int(kwargs.get('backoffstep', 5))
 		self.skipped = tuple([] for _ in range(kwargs.get('skipmaxretries', 3)))
-		self.idleTime = float(kwargs.get('idletime', 30))
+		self.idleTime = float(kwargs.get('idletime', 15))
 		self.timeout = float(kwargs.get('timeout', 30))
 		self.checkEvery = float(kwargs.get('checkevery', 180))
 		self.urls = list(set(kwargs.get('urls', [])))
@@ -114,7 +116,7 @@ class Crawler :
 		# initialize the session
 		self._session = requests.Session()
 
-		self.errorHandlers = defaultdict(lambda : self.shutdown, {  # default, shut down
+		self.errorHandlers = defaultdict(lambda : self.unexpectedErrorHandler, {  # default, log a critical error
 			# all handlers are called WITHOUT args
 			# handlers that return True reset skips to 0, if the url needs to be skipped, run self.skipUrl
 			BadOrMalformedResponse: self.shutdown,  # FULL SHUTDOWN, KILL PROCESS AND LOG ERROR
@@ -145,6 +147,7 @@ class Crawler :
 			for url in self.urlGenerator() :
 				if self.crawl(url) :
 					self.consecutiveNoSubmissions = 0
+					self.backoff = self.backoffstep
 
 				if time.time() > nextcheck :
 					startingSkips = self.skips()
@@ -291,6 +294,13 @@ class Crawler :
 		pass
 
 
+	def unexpectedErrorHandler(self) :
+		self.logger.critical({
+			'info': 'encountered unexpected error.',
+			**self.crashInfo(),
+		})
+
+
 	def shutdown(self) :
 		self.logger.error(self.crashInfo())
 		e, exc_tb = sys.exc_info()[1:]
@@ -322,7 +332,8 @@ class Crawler :
 		if self.direction > 0 and not self.checkingSkips :
 			self.skipUrl()
 			self.consecutiveNoSubmissions += 1
-			if self.consecutiveNoSubmissions >= self.skipMax :
+			if self.consecutiveNoSubmissions >= self.backoff :
+				self.backoff += self.backoffstep
 				startingSkips = self.totalSkipped()
 				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
@@ -391,7 +402,7 @@ class Crawler :
 			except (pika.exceptions.ConnectionWrongStateError, pika.exceptions.StreamLostError) :
 				# reconnect
 				self._mq_connect()
-		self.logger.error(f'{self.name} failed to send item to message queue.')
+		self.logger.critical(f'{self.name} failed to send item to message queue.')
 		return False
 
 
