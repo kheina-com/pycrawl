@@ -13,7 +13,7 @@ import sys
 
 class First :
 	def __init__(self, method=None) :
-		self.method = method if method else lambda i : i
+		self.method = method
 
 	def __call__(self, it) :
 		try :
@@ -71,9 +71,9 @@ class Crawler :
 		"""
 
 		# apply defaults here
-		self.id = int(kwargs['startingid'])
-		self.direction = int(kwargs['direction'])
-		self.backoff = int(kwargs.get('backoff', 5))
+		self.id = int(kwargs.get('startingid', 0))
+		self.direction = int(kwargs.get('direction', 0))
+		self.backoff = self._backoff = int(kwargs.get('backoff', 5))
 		self.backoffstep = int(kwargs.get('backoffstep', 5))
 		self.skipped = tuple([] for _ in range(kwargs.get('skipmaxretries', 3)))
 		self.idleTime = float(kwargs.get('idletime', 15))
@@ -126,6 +126,7 @@ class Crawler :
 			requests.exceptions.ConnectionError: lambda : self.skipUrl(lambda : time.sleep(5 * 60)),  # temporary (5 minute) shutdown
 			NoSubmission: self.noSubmissionHandler,  # custom handler
 			InvalidSubmission: lambda : True,  # a submission was found, but the type isn't able to be indexed
+			requests.exceptions.ReadTimeout: self.queueUrl,  # the endpoint is having an issue, re-queue until we get a more solid error
 			ValueError: self.valueErrorHandler,  # custom error handler, make sure it's what we expected
 		})
 
@@ -147,7 +148,7 @@ class Crawler :
 			for url in self.urlGenerator() :
 				if self.crawl(url) :
 					self.consecutiveNoSubmissions = 0
-					self.backoff = self.backoffstep
+					self._backoff = self.backoff
 
 				if time.time() > nextcheck :
 					startingSkips = self.skips()
@@ -312,7 +313,7 @@ class Crawler :
 		hundredCode = int(e.status / 100)
 		if hundredCode == 0 :  # custom error, no response received
 			self.queueUrl()
-			self.logger.error(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
+			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
 		elif hundredCode == 4 :  # 400 error
 			self.skipUrl()
 			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
@@ -332,8 +333,8 @@ class Crawler :
 		if self.direction > 0 and not self.checkingSkips :
 			self.skipUrl()
 			self.consecutiveNoSubmissions += 1
-			if self.consecutiveNoSubmissions >= self.backoff :
-				self.backoff += self.backoffstep
+			if self.consecutiveNoSubmissions >= self._backoff :
+				self._backoff += self.backoffstep
 				startingSkips = self.totalSkipped()
 				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
