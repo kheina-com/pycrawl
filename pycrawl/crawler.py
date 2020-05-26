@@ -400,7 +400,7 @@ class Crawler :
 			try :
 				self._mq_channel.basic_publish(**self._mq_publish_info, body=message)
 				return True
-			except (pika.exceptions.ConnectionWrongStateError, pika.exceptions.StreamLostError) :
+			except (pika.exceptions.ConnectionWrongStateError, pika.exceptions.StreamLostError, pika.exceptions.ChannelWrongStateError) :
 				# reconnect
 				self._mq_connect()
 		self.logger.critical(f'{self.name} failed to send item to message queue.')
