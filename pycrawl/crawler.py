@@ -313,10 +313,18 @@ class Crawler :
 		hundredCode = int(e.status / 100)
 		if hundredCode == 0 :  # custom error, no response received
 			self.queueUrl()
-			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
+			self.logger.warning({
+				**self.crashInfo(),
+				'info': f'{self.name} encountered {e}.',
+				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
+			})
 		elif hundredCode == 4 :  # 400 error
 			self.skipUrl()
-			self.logger.warning(f'{self.name} encountered {e.status} {GetFullyQualifiedClassName(e)}: {e} on id {self.id}.')
+			self.logger.warning({
+				**self.crashInfo(),
+				'info': f'{self.name} encountered {e}.',
+				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
+			})
 		elif hundredCode == 5 :  # 500 error
 			self.queueUrl()
 			time.sleep(5 * 60)  # sleep for a while
@@ -325,7 +333,7 @@ class Crawler :
 			self.logger.error({
 				**self.crashInfo(),
 				'info': f'{self.name} caught unexpected error.',
-				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}'
+				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
 			})
 
 
