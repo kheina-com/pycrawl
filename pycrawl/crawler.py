@@ -154,7 +154,12 @@ class Crawler :
 					startingSkips = self.skips()
 					self.checkSkips()
 					nextcheck = time.time() + self.checkEvery
-					self.logger.info(f'{self.name} checked skips. current id: {self.id} ({self.skips()}/{startingSkips})')
+					self.logger.info({
+						'info': f'{self.name} checked skips.',
+						'startingskips': startingSkips,
+						'skips': self.skips(),
+						'id': self.id,
+					})
 
 		except :
 			self.logger.error({
@@ -163,7 +168,11 @@ class Crawler :
 			})
 
 		else :
-			self.logger.info(f'{self.name} gracefully shutting down. current id: {self.id}, skips: {self.prettySkipped()} ({self.skips()})')
+			self.logger.info({
+				'info': f'{self.name} gracefully shutting down.',
+				'skips': self.skips(),
+				'id': self.id,
+			})
 
 		if self.event :
 			self.event.set()
@@ -188,7 +197,12 @@ class Crawler :
 				self.logger.info(logdata)
 
 		else :
-			logdata = f'{self.name} gracefully finished. current id: {self.id}, {self.skips()} skipped items left: {self.verboseSkipped()}'
+			logdata = {
+				'info': f'{self.name} gracefully finished.',
+				'items': self.verboseSkipped(),
+				'skips': self.skips(),
+				'id': self.id,
+			}
 			if self.skips() :
 				self.logger.error(logdata)
 			else :
@@ -202,6 +216,7 @@ class Crawler :
 			'stacktrace': format_tb(exc_tb),
 			'id': self.id,
 			'url': self.url,
+			'queue': len(self.urls),
 			'formattedurl': self.formattedurl,
 			'name': self.name,
 			'skips': self.totalSkipped(),
@@ -346,7 +361,12 @@ class Crawler :
 				startingSkips = self.totalSkipped()
 				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
-				self.logger.info(f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s. current id: {self.id} ({self.totalSkipped()}/{startingSkips})')
+				self.logger.info({
+					'info': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s.',
+					'startingskips': startingSkips,
+					'skips' self.skips(),
+					'id': self.id,
+				})
 				self.consecutiveNoSubmissions = 0  # and reset to zero
 				self.idle()  # chill to let more stuff be uploaded
 
