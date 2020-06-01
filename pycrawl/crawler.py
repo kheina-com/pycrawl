@@ -364,7 +364,7 @@ class Crawler :
 				self.logger.info({
 					'info': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s.',
 					'startingskips': startingSkips,
-					'skips' self.skips(),
+					'skips': self.skips(),
 					'id': self.id,
 				})
 				self.consecutiveNoSubmissions = 0  # and reset to zero
