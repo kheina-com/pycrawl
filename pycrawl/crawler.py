@@ -155,7 +155,7 @@ class Crawler :
 					self.checkSkips()
 					nextcheck = time.time() + self.checkEvery
 					self.logger.info({
-						'info': f'{self.name} checked skips.',
+						'message': f'{self.name} checked skips.',
 						'startingskips': startingSkips,
 						'skips': self.skips(),
 						'id': self.id,
@@ -163,13 +163,13 @@ class Crawler :
 
 		except :
 			self.logger.error({
-				'info': f'{self.name} gracefully shutting down.',
+				'message': f'{self.name} gracefully shutting down.',
 				**self.crashInfo(),
 			})
 
 		else :
 			self.logger.info({
-				'info': f'{self.name} gracefully shutting down.',
+				'message': f'{self.name} gracefully shutting down.',
 				'skips': self.skips(),
 				'id': self.id,
 			})
@@ -187,7 +187,7 @@ class Crawler :
 
 		except :
 			logdata = {
-				'info': f'{self.name} has shut down.',
+				'message': f'{self.name} has shut down.',
 				'skipped': self.skipped,
 				**self.crashInfo(),
 			}
@@ -198,7 +198,7 @@ class Crawler :
 
 		else :
 			logdata = {
-				'info': f'{self.name} gracefully finished.',
+				'message': f'{self.name} gracefully finished.',
 				'items': self.verboseSkipped(),
 				'skips': self.skips(),
 				'id': self.id,
@@ -312,7 +312,7 @@ class Crawler :
 
 	def unexpectedErrorHandler(self) :
 		self.logger.critical({
-			'info': 'encountered unexpected error.',
+			'message': 'encountered unexpected error.',
 			**self.crashInfo(),
 		})
 
@@ -330,14 +330,14 @@ class Crawler :
 			self.queueUrl()
 			self.logger.warning({
 				**self.crashInfo(),
-				'info': f'{self.name} encountered {e}.',
+				'message': f'{self.name} encountered {e}.',
 				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
 			})
 		elif hundredCode == 4 :  # 400 error
 			self.skipUrl()
 			self.logger.warning({
 				**self.crashInfo(),
-				'info': f'{self.name} encountered {e}.',
+				'message': f'{self.name} encountered {e}.',
 				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
 			})
 		elif hundredCode == 5 :  # 500 error
@@ -347,7 +347,7 @@ class Crawler :
 			self.queueUrl()
 			self.logger.error({
 				**self.crashInfo(),
-				'info': f'{self.name} caught unexpected error.',
+				'message': f'{self.name} caught unexpected error.',
 				'error': f'{e.status} {GetFullyQualifiedClassName(e)}: {e}',
 			})
 
@@ -362,7 +362,7 @@ class Crawler :
 				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
 				self.logger.info({
-					'info': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s.',
+					'message': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s.',
 					'startingskips': startingSkips,
 					'skips': self.skips(),
 					'id': self.id,
