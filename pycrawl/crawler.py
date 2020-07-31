@@ -1,4 +1,4 @@
-from pycrawl.common.HTTPError import HTTPError, ResponseNotOk, BadOrMalformedResponse
+from pycrawl.common.HTTPError import ResponseNotOk, BadOrMalformedResponse
 from pycrawl.common import GetFullyQualifiedClassName, isint
 from collections import defaultdict
 from lxml.html import fromstring
@@ -383,8 +383,8 @@ class Crawler :
 		if str(e).startswith('Unicode strings with encoding declaration are not supported.') :
 			self.queueUrl()
 		else :
-			# reraise the error since it wasn't what we were expecting
-			raise e
+			# we can't just re-raise it because we've exited the crawl try block
+			self.unexpectedErrorHandler()
 
 
 	def urlGenerator(self) :
@@ -412,7 +412,7 @@ class Crawler :
 			if response.ok : return fromstring(response.text)
 			elif response.status_code in self.unblocking :
 				self.unblocking[response.status_code](response)
-			raise ResponseNotOk(f'reason: {response.reason}, url: {url}', status=response.status_code)
+			raise ResponseNotOk(f'reason: {response.reason}, url: {url}', status=response.status_code, logdata={ 'reason': response.reason })
 		raise InvalidResponseType(f'request failed for an unknown reason.')
 
 
