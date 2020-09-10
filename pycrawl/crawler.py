@@ -64,6 +64,7 @@ class Crawler :
 		checkevery: interval to check skipped urls in seconds
 		timeout: how long to wait when downloading an html document
 		idletime: how long to wait when the crawler has caught up with the most recent uploaded submissions
+		maxidletime: the longest the bot will wait after repeatedly attemping to crawl new submissions
 		calm: force the crawler to act more calmly to reduce strain on the website
 		endingid: specify an ending id to stop crawling on
 		urls: only crawl these specific urls
@@ -76,7 +77,8 @@ class Crawler :
 		self.backoff = self._backoff = int(kwargs.get('backoff', 5))
 		self.backoffstep = int(kwargs.get('backoffstep', 5))
 		self.skipped = tuple([] for _ in range(kwargs.get('skipmaxretries', 3)))
-		self.idleTime = float(kwargs.get('idletime', 15))
+		self._idlefor = self.idleTime = float(kwargs.get('idletime', 15))
+		self.maxIdleTime = float(kwargs.get('maxidletime', 600))
 		self.timeout = float(kwargs.get('timeout', 30))
 		self.checkEvery = float(kwargs.get('checkevery', 180))
 		self.urls = list(set(kwargs.get('urls', [])))
@@ -149,6 +151,7 @@ class Crawler :
 				if self.crawl(url) :
 					self.consecutiveNoSubmissions = 0
 					self._backoff = self.backoff
+					self._idlefor = self.idleTime
 
 				if time.time() > nextcheck :
 					startingSkips = self.skips()
@@ -274,9 +277,11 @@ class Crawler :
 		endtime = time.time()
 
 		# sleep off remainder of the time left
-		remainder = startime - endtime + self.idleTime
+		remainder = startime - endtime + self._idlefor
 		if remainder > 0 :
 			time.sleep(remainder)
+
+		self._idlefor = min(self._idlefor * 2, self.maxIdleTime)
 
 
 	def formatUrl(self, url) :
@@ -362,7 +367,7 @@ class Crawler :
 				del self.skipped[0][-self.consecutiveNoSubmissions:]  # remove skips
 				self.id -= self.consecutiveNoSubmissions * self.direction
 				self.logger.info({
-					'message': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self.idleTime}s.',
+					'message': f'{self.name} encountered {self.consecutiveNoSubmissions} urls without submissions, sleeping for {self._idlefor}s.',
 					'startingskips': startingSkips,
 					'skips': self.skips(),
 					'id': self.id,
