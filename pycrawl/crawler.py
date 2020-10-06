@@ -155,7 +155,6 @@ class Crawler :
 					self._idlefor = self.idleTime
 
 				if time.time() > nextcheck :
-					startingSkips = self.skips()
 					self.checkSkips()
 					nextcheck = time.time() + self.checkEvery
 
@@ -223,6 +222,7 @@ class Crawler :
 
 
 	def checkSkips(self) :
+		startingSkips = self.skips()
 		self.checkingSkips = True
 
 		maxlen = len(self.skipped) - 1
