@@ -1,5 +1,5 @@
-flask
-lxml
-requests
-pika
-ujson
+flask>=1.1.2
+lxml>=4.5.0
+requests>=2.24.0
+pika>=1.1.0
+ujson>=3.2.0

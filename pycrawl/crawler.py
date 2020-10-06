@@ -129,6 +129,7 @@ class Crawler :
 			NoSubmission: self.noSubmissionHandler,  # custom handler
 			InvalidSubmission: lambda : True,  # a submission was found, but the type isn't able to be indexed
 			requests.exceptions.ReadTimeout: self.queueUrl,  # the endpoint is having an issue, re-queue until we get a more solid error
+			requests.exceptions.SSLError: self.queueUrl,  # same as above
 			ValueError: self.valueErrorHandler,  # custom error handler, make sure it's what we expected
 		})
 
@@ -157,12 +158,6 @@ class Crawler :
 					startingSkips = self.skips()
 					self.checkSkips()
 					nextcheck = time.time() + self.checkEvery
-					self.logger.info({
-						'message': f'{self.name} checked skips.',
-						'startingskips': startingSkips,
-						'skips': self.skips(),
-						'id': self.id,
-					})
 
 		except :
 			self.logger.error({
@@ -240,6 +235,13 @@ class Crawler :
 					self.skipped[i+1].append(url)
 
 		self.checkingSkips = False
+
+		self.logger.info({
+			'message': f'{self.name} checked skips.',
+			'startingskips': startingSkips,
+			'skips': self.skips(),
+			'id': self.id,
+		})
 
 
 	def skipUrl(self, func=None) :

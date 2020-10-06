@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
 	name='pycrawl',
-	version='0.1.1',
+	version='0.1.2',
 	description='A fast and simple crawling framework.',
 	author='kheina',
 	url='https://github.com/kheina/pycrawl',
